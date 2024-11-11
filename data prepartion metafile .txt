@@ -1,0 +1,33 @@
+A. Conan, Anne; Akerele, Oluyemisi; Simpson, Greg et al. (2016). Data from: Population dynamics of owned, free-roaming dogs: implications for rabies control [Dataset].
+B. https://datadryad.org/stash/dataset/doi:10.5061/dryad.brv15dvcq
+
+C. Description of Dataset 
+
+This dataset is associated with an experiment that tests the effects of human activity and bear viewing on grizzly bear activity in the Khutze watershed. They also observed and noted the trade-off of risk avoidance and foraging associated with salmon levels. Wildlife avoids people and they wanted to highlight this through the bears from forty different cameras.  
+
+
+D. Key to the dataset : 
+
+Deployment - remote camera 
+Detections - number of independent grizzly bears and that location
+Treatment- whether tourism was open or closed
+Week - week of the year 
+Salmon Biomass - scaled biomass for the day 
+Water level - water level in relation to grizzly bear fishing 
+People previous - whether people were present the day previous 
+People present - whether people were present that given day 
+People - the number of people that were present 
+Vessels- number of vessels that visited on a given day 
+Tours- number of tours that visited on a given day 
+Distance to tour- how far away the tour was to the camera
+Year- the year 
+Year Closures- whether the area was closed to tourism based on the year 
+Days since people- the number of days since people visited 
+Tour length- The number of hours in a day with people present 
+Exposure- Whether the camera site was in a forested or open area 
+
+E. Changes made to the data set 
+
+put underscores in between words in column titles 
+
+moved columns to the right of the column

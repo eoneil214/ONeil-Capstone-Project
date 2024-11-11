@@ -1,0 +1,65 @@
+---
+title: "Data-exploration.qmd"
+format: html
+editor: visual
+---
+
+## Data Exploration on Bears
+
+setting things up
+
+```{r}
+rm(list=ls())
+library(here)
+library(tidyverse)
+library(ggfortify)
+```
+
+```{r}
+#read data in 
+bears <- read_csv("data/Short_et_al_Data1 (1).csv")
+```
+
+```{r}
+glimpse(bears)
+summary(bears)
+
+```
+
+```{r}
+#change character variables to factor variables 
+bears$Exposure <- as.factor(bears$Exposure)
+bears$PeoplePresent <- as.factor(bears$PeoplePresent)
+bears$Treatment <- as.factor(bears$Treatment)
+```
+
+```{r}
+#plot the relationship between the detection of bears and the salmon biomass to see the correlation 
+ggplot(bears, aes(x= Detections, y= SalmonBiomass )) + geom_point(size = 5) +  theme_bw()
+```
+
+From this, there doesn't seem to be any huge outliers due to mistakes in the data. I will not be removing any points and keeping the data as is. You can also detect from this plot a positive relationship between salmon biomass and the amount of bears.
+
+```{r}
+#making a histogram for comparing years to bear 
+ggplot(bears, aes(x= Year)) + geom_histogram(binwidth = .25) 
+```
+
+From the data you can expect to see the relationship between the year it is and the bear count.
+
+```{r}
+#finding the mean and standard deviation 
+salmon <- bears %>% group_by(Detections) %>% summarise(
+  mean_s = mean(SalmonBiomass, na.rm= T), 
+  sd_s= sd(SalmonBiomass, na.rm= T)
+)
+View(salmon)
+```
+
+```{r}
+count <- bears %>% group_by(Year) %>% summarise(
+  mean_c = mean(Detections, na.rm= T), 
+  sd_c= sd(Detections, na.rm= T)
+)
+View(count)
+```

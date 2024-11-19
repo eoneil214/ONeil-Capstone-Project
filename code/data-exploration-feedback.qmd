@@ -1,0 +1,21 @@
+---
+title: "data exploration feedback"
+format: html
+editor: visual
+---
+
+## Data Exploration Feedback
+1. I'm curious why you are using `read_csv` rather than `read.csv` to pull in your data (we haven't been using it in class...).
+
+2. As per the feedback I gave on PS2 (both to you specifically and in general in the assignment key), I  need to see your scientific thinking mapped out as commentary before and after code chunks. So for instance, why do you run the code in lines 23 - 27 and what do you learn when you run it? It is important that future you (and I) can follow along and understand your thought processes by reading the .qmd file.
+
+3. You didn't do anything to check if there were any errors in the levels of your factor variables.
+
+4. Before you plot relationships to see if there is a correlation, you should  be plotting histograms of all of your quantitative variables, as well as box-plots. Scatter plots are not good methods for identifying outliers.
+
+5. What does the histogram of year tell you? You are incorrectly describing what it shows. Count in that case is just the number of rows from 2021 vs. the number of rows from 2019. Also, this shows me that there is somethign strange about how you have Year encoded (it seems like it is really functioning as a factor variable). Nothing in that plot is about how many bears were seen.
+
+6. On line 52, you group by detection, but detections is not a categorical (grouping) variable. What if you grouped by year or by Treatment (open vs. closed) to see and made an associated plot?
+
+I don't think you've really done all of the exploration here. You haven't really looked at the Treatment variable at all in terms of detections, or people present. Need to do a more thorough look through the data.
+

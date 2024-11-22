@@ -1,0 +1,79 @@
+---
+title: "stat.1.qmd"
+format: html
+editor: visual
+---
+
+## Analysis one
+
+This is to see the relationship between the what is the effect of site closure on bear abundance. The null hypothesis is that there is no correlation between site closure and bear abundance
+
+Set things up
+
+```{r}
+rm(list=ls())
+library(here)
+library(tidyverse)
+library(ggfortify)
+bears <- read_csv("data/Short_et_al_Data1 (1).csv")
+```
+
+Take a look at our data and see if things will need to be fixed
+
+```{r}
+glimpse(bears)
+summary(bears)
+
+```
+
+We have 20 variables with 4577 observations. For this analysis we will be looking at the Year closure variable and the detections variable. We need to change year closure to a factor variable
+
+```{r}
+#change character variables to factor variables
+bears$YearClosures <- as.factor(bears$YearClosures)
+bears$Exposure <- as.factor(bears$Exposure)
+bears$PeoplePresent <- as.factor(bears$PeoplePresent)
+bears$Treatment <- as.factor(bears$Treatment)
+
+```
+
+Check our levels for treatment. Since there is three levels for treatment; closed to tourism, or open in one of two sections, We need to run an anova test. There does not seem to be any issues with how the data is put in so we can continue with our test. 
+
+```{r}
+#use the levels function to see if there are mistakes 
+levels(bears$Treatment)
+```
+
+First we need to plot the relation before analyzing the data
+
+```{r}
+#plot the relationship between the detection of bears and the treatment to see the correlation 
+ggplot(bears, aes(x= Treatment, y = Detections)) + geom_boxplot()
+```
+
+From this, it can be assumed that there will be a difference from closed to open tourism but not a difference in the two sections that were open to tourism. 
+
+```{r}
+#making a model
+bear.model <- lm(Detections ~ Treatment, data = bears)
+autoplot(bear.model)
+
+```
+Looking the plots, we can make the assumptions that the data does not follow the normal distribution 
+```{r}
+#run anova test 
+anova(bear.model)
+```
+We have a p value of less than .05 which shows us that there is a significant difference between the Treatment levels of being open and closed and the amount of bears detected. There is a degrees of freedom of two because we have one minus the treatment levels. Our residuals degrees of freedom is 4574 because we have 4577 observations minus the three treatment levels. (F= 34.742, df= 2, p < .05)
+```{r}
+ggplot(bears, aes(x= Treatment, y = Detections)) + geom_boxplot() + ggtitle("Park Treatment on Bear Detection") + theme(
+  axis.title.x = element_text( size = rel(1)), 
+  axis.text.x = element_text(angle = 45, size = 13, vjust = .5))
+
+```
+The figure shows the relationship between the Treatment status of the park such as an open or closed area in relation to how many bears were detected on camera. Results show significant differences with (F= 34.742, df= 2, p < .05)
+Questions 
+
+Can I do anything about how many points are above my boxplot? 
+
+

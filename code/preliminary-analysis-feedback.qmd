@@ -1,0 +1,77 @@
+---
+title: "preliminary analysis feedback"
+format: html
+editor: visual
+---
+
+## Preliminary Analysis Feedback
+
+### General
+
+Your project needs to be cleaned up. You have two files called "analysis1.qmd" and two called "analysis2.qmd" - one each in the root folder and code folder. You only have one copy of the file called "analysis3.qmd" but it is in the root and not the code folder.
+
+Please remember the "guess the answer" part of our workflow - see chapter 5 for details on how to do it with your analyses - and include in your code for the final draft.
+
+Make sure to include biological insight in your alternative hypotheses and your interpretation of results.
+
+### Analysis 1
+
+I'm looking at the version of the file in your Code folder.
+
+I would like to see a clear statement of your null and alternative hypotheses with biological justification at the top of the analysis script.
+
+Line 51 - I think a faceted histogram might be better to see the pattern because it would show the distribution more clearly.
+
+something like this:
+
+```{r}
+ggplot(bears, aes(Detections))+
+  geom_histogram()+
+  facet_wrap(~Treatment, ncol = 1)
+```
+
+When you look a this plot, one thing you quickly see is that the data are not normally distributed and that you have what we call "zero inflated" data. This means you are going to need to use a different model, one that we will discuss in class (a glm).
+
+Line 54 - careful with your wording. We can't really "assume" anything - but you can make an educated guess.
+
+Line 63 - you are quite right, the data do NOT follow a normal distribution. We'll need to use a different model, one that we will discuss in class.
+
+Line 66 - you are not acutally running an anova test. You ran the test when you created the model on line 68. The anova function just prints specific results from your model.
+
+Line 73 - this is not a good figure to use for your final figure. Consult chapter 5 in your book for a better idea (figure 5.11) of how to portray the results from a 1-way ANOVA.
+
+You also need to use a tukey hsd test here to determine which of the 3 treatment groups are different from one another.
+
+Does it make sense biologically that there were more detections when the sites were closed to tourists? Address that in your interpretation.
+
+Line 81 - Yes - what you can do is a glm anova, rather than lm. We will talk about how to do it in class. The reason you have so many points on your boxplots is because of the zero-inflation that I mentioned above when I showed the histogram.
+
+### Analysis 2
+
+I'm looking at the version of the file that is in the Code folder.
+
+Line 9 - please state your question much more precisely - I can't quite figure out what question you are trying to answer. I don't know what you mean by "deployment" relative to your dataset. Is that a variable? I believe what you are doing is trying to use multiple regression to see what variables might be the best predictors of the number of bears detected at a camera.
+
+Line 30 - Didn't need to change what? What are "these"?
+
+Line 42 - What is "tour length" measuring and how can it have negative values?
+
+Line 41 - what are the units of Distance to tour? Seems strange that it just ranges b/w 0 and 1.
+
+Line 49 - good job building a muliple regression! However, you can see from your plots that your data are not normal, so we need to use a different model structure (glm) that we will talk about in class.
+
+Line 51 - don't run summary on your model until you have checked the assumptions.
+
+Line 66 - your interpretation needs work. We can work on this in class some. It turns out that you are not looking for a difference between means with this test, so saying "there is a signficant difference between biomass and detections" doesn't make sense. However, we haven't learned how to do multiple regression and interpret it yet, so I'm not concerned that you don't have it exactly right yet. And I'm impressed that you fit a multiple regression!
+
+We can't make an easy final plot for multiple regression - the plots that you did make are not very good choices for final plots.
+
+Line 78 - questions
+
+You cannot assign an A or B because multiple regression works differently.
+
+Keep your outliers - dont' get rid of them. They are only "outliers" if we assume a normal distribution, which you don't have. You again have zero-inflated data.
+
+No - you can't make a plot with all of these variables on it. Which is fine.
+
+You are going to need to do somethign called *best subsets regression* and *model selection* - I have written a lot of information about it in the Cap DAP example github repo.

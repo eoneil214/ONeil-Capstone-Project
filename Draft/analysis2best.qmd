@@ -1,0 +1,169 @@
+---
+title: "analysis2bestglm.qmd"
+format: html
+editor: visual
+---
+
+```{r}
+rm(list = ls())
+library(here)
+library(tidyverse)
+library(ggfortify)
+library(performance) #for checking model performance
+library(broom) #for tidying regression output
+library(leaps) #allows best subsets linear regression
+library(MASS) #for stepAIC function
+library(data.table) #for confidence intervals
+library(bestglm)
+bears <- read_csv("~/Desktop/OneDrive - St. Lawrence University/Biostats/R_projects/ONeil-Capstone-Project/data/Short_et_al_Data1 (1).csv")
+```
+
+### Plot response variable 
+
+```{r}
+ggplot(bears, aes(Detections))+
+  geom_histogram()
+range(bears$Detections, na.rm = T)
+```
+
+Seeing this graph, there are alot of zero values which may cause trouble in our data analysis
+
+
+### Examine predictors 
+
+ Step 2 - Evaluate predictor variables.
+
+We now have the data set set up so that columns 2:6 represent possible predictor variables. Now our task is to see if any of those predictor variables are highly correlated with one another. We don't want to use predictor variables in a model when they are highly correlated. The rule of thumb is that variables with correlation coefficients \> 0.7 (positive or negative) are too highly correlated.
+
+Make new data set with only my predictor variables
+
+```{r}
+bears1 <- bears %>% dplyr::select(Detections, SalmonBiomass, Tours, DistanceToTour, DaysSincePeople, tourLength)
+```
+
+Now colums 2:6 are numeric predictors. Let's take a look at how correlated they are.
+
+```{r}
+cor_tests <- cor(bears1[,2:6], method = "pearson")
+cor_tests <- round(cor_tests, 2) #round for easier viewing
+```
+Tours and tour length are highly correlated with a .95 correlation coefficient which is way to high so I am going to drop tours 
+```{r}
+bears1 <- bears1 %>% dplyr::select(-Tours)
+```
+
+Guesstimate predictors
+
+We can take a look at how highly correlated our response variable is with our numeric predictor variables to make a guess as to which predictors might be important and likely to be included in our model.
+
+```{r}
+predictor_cors <- data.frame(cor(bears1[,2:5], bears1$Detections))
+```
+Salmon biomass looks like it could be the best out of all predictors to be correlated as it is the highest number to be closes to 1 but none are strong as they are all low numbers. 
+
+
+Make all the plots 
+
+```{r}
+ggplot(bears1, aes(SalmonBiomass, Detections))+
+  geom_point()
+```
+
+
+```{r}
+ggplot(bears1, aes(DistanceToTour, Detections))+
+  geom_point()
+```
+
+We see that there are a LOT of zeroes for this variable which may be problematic.
+
+```{r}
+ggplot(bears1, aes(DaysSincePeople, Detections))+
+  geom_point()
+```
+
+
+```{r}
+ggplot(bears1, aes(tourLength, Detections))+
+  geom_point()
+```
+
+
+### Build Best subsets 
+
+Method 1 - Build the model
+
+Now build the models
+
+```{r}
+all_subsets.mods <-glm( Detections ~ . , family = poisson, data = bears1)
+autoplot(all_subsets.mods)
+  
+summary(all_subsets.mods)
+
+```
+For this plot, the data is not normally distributed. This is because we have too many zero values within our data set. This is called zero inflation. When a large portion of the data is zero it is hard to interpret the data as coefficients and their significants may not be entirely accurate or underestimating the actual effect of predictors.  We have to stop our model here as going further with any other model would be past the knowledge of the class. 
+
+### Run and Interpret final model 
+Create the final model
+
+```{r}
+final_mod <-glm( Detections ~ SalmonBiomass + tourLength , family = poisson, data = bears1)
+summary(final_mod)
+anova(final_mod)
+```
+From our summary call we see that the overall model is highly significant (F = 4.47 with 6 and 68 df, p = 0.00114).
+
+We can see from the coefficients that Shannon diversity is negatively related to Season (with Spring being statistically significant and winter showing borderline significance). There is a positive relationship between the percent of shrubs in the 50-hectare area, but it also has a very modest slope.
+
+We can again use the performance package to check our final model. This gives a nice visual on how well our model fits assumptions. Looks good! (it may give you a message in the console about needing to install package see - choose yes!)
+
+```{r}
+library(DHARMa) #package needed to run the check model function
+check_model(final_mod)
+```
+Make a final plot
+
+It would be very challenging to plot this model, as we have 4 variables in the model and we can't plot in 4 dimensional space.
+
+But we could get a couple of plots to look at since we have 4 variables and one is categorical.
+
+To do so, we will use the broom package to tidy up regression results (by putting them into data frames) so that we can more easily work with them.
+
+```{r}
+coefs <- tidy(final_mod)
+coefs
+```
+Now get confidence interval
+
+```{r}
+ci <- data.table(confint(final_mod), keep.rownames = 'term')
+```
+Now combine coefs and ci
+
+```{r}
+cidf <- cbind(coefs, ci)
+cidf
+```
+
+```{r}
+colnames(cidf)
+cidf <-cidf[,-6] #got rid of second term column
+
+cidf <-cidf %>% rename(
+  "lower" = "2.5 %",
+  "upper" = "97.5 %"
+)
+
+cidf$term <- as.factor(cidf$term)
+```
+Now we can make a plot
+
+```{r}
+ggplot(cidf, aes(estimate, term))+
+  geom_vline(xintercept = 0, linetype = 2)+
+  geom_point(size = 3)+
+  geom_errorbarh(aes(xmax = lower, xmin = upper), height = 0.2)+
+  theme_bw()
+```
+This plot shows us the confidence intervals for each term in our model - those that do not include zero for the estimate are statistically significant. You can see that, in this example, when the season is spring, there is a significant negative effect on detected mammal diversity and when the percent shrubs in the habitat increases, there is a signficant and very modest increase in diversity.

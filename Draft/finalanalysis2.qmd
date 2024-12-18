@@ -1,0 +1,183 @@
+---
+title: "finalanalysis2.qmd"
+format: html
+editor: visual
+---
+## Analysis Two
+
+This is to see the relationship between bears on a particular deployment such as salmon biomass, people present, length of a tour, and distance to tour. Our null hypothesis will be that there is no significant difference between bear abundance on a particular deployment
+
+Set things up
+
+```{r}
+rm(list=ls())
+library(here)
+library(tidyverse)
+library(ggfortify)
+library(ggplot2)
+bears <- read_csv('/Users/emmaoneil/Library/CloudStorage/OneDrive-St.LawrenceUniversity/Biostats/R_projects/ONeil-Capstone-Project/data/Short_et_al_Data1 (1).csv')  
+```
+
+```{r}
+#change character variables to factor variables 
+bears$YearClosures <- as.factor(bears$YearClosures) 
+bears$Exposure <- as.factor(bears$Exposure) 
+bears$PeoplePresent <- as.factor(bears$PeoplePresent) 
+bears$Treatment <- as.factor(bears$Treatment)
+```
+
+We didn't need to change these to factor variables since we are dealing with continuous numerical data.
+
+```{r}
+summary(bears)
+```
+
+```{r}
+bears1 <- bears[complete.cases(bears),]
+```
+
+
+```{r}
+ggplot(bears, aes(Detections))+
+  geom_histogram()
+range(bears$Detections, na.rm = T)
+```
+
+```{r}
+bears <- bears %>% relocate(SalmonBiomass, .after = Tours)
+bears <- bears %>% relocate(Detections, .after = PeoplePresent)
+bears <- bears %>% relocate(Exposure, .after = WaterLevel)
+bears <- bears %>% relocate(tourLength, .after = DistanceToTour)
+```
+
+
+```{r}
+cor_tests <- cor(bears[,11:17], method = "pearson")
+cor_tests <- round(cor_tests, 2) #round for easier viewing
+```
+
+
+```{r}
+cor_tests_results <- rcorr(as.matrix(bears[,11:17]))
+```
+
+
+```{r}
+flattenCorrMatrix<-function(cormat,pmat){
+  ut<-upper.tri(cormat)
+  data.frame(
+    row = rownames (cormat)[row(cormat) [ut]],
+    column = rownames(cormat)[col(cormat)[ut]],
+    cor = (cormat)[ut],
+    p = pmat[ut]
+  )
+}
+```
+
+
+```{r}
+bear_table <- flattenCorrMatrix(cor_tests_results$r, cor_tests_results$P)
+```
+
+```{r}
+highly_correlated <- bear_table %>% filter(cor >= 0.7 | cor <= -0.7)
+```
+
+```{r}
+View(highly_correlated)
+```
+
+
+
+
+
+```{r}
+model.multiple <- glm(Detections ~ SalmonBiomass + DistanceToTour + tourLength  , family= "poisson", data = bears)
+summary(model.multiple)
+```
+
+```{r}
+predict.glm(model.multiple, type = "response")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+We can make individual scatterplots plotting the relationships between the different deployments like detections vs salmon biomass, detections vs tour distance and detections vs length of tour to see how this all affects the amount of bears shown.
+
+```{r}
+#scattor plot of different x values for the same detection y value 
+ggplot(bears, aes(x= SalmonBiomass, y= Detections)) + geom_point() + theme_bw() 
+ggplot(bears, aes(x= DistanceToTour, y= Detections)) + geom_point() + theme_bw()
+ggplot(bears, aes(x= tourLength, y= Detections)) + geom_point() + theme_bw()
+
+```
+
+For distance to tour, there are some outliers however, we are going to keep this in our statistcal analysis due to the data not having errors but there just being so many data inputs.
+
+```{r}
+#make the model for regression and look at the summary statisitcs 
+model.multiple <- lm(Detections ~ SalmonBiomass + DistanceToTour + tourLength  , data = bears)
+summary(model.multiple)
+```
+
+The t values here show statistical significance between variables. The large t values shown here show there is a relationship between variables and was not due to chance.
+
+```{r}
+autoplot(model.multiple)
+```
+
+When looking at assumptions for this model, everything looks good except for normality. Looking at the Normal Q-Q plot, the normality conditon is not met.
+
+```{r}
+anova(model.multiple)
+```
+
+There is a significant difference between the salmon biomass and the detections as well as detections and tour length. We can reject the null hypothesis that there was not a significant difference between detections of bears and the distance of the tour near the detection camera. We can support the null hypothesis for saying there is no relationship between the detections and tour distance. The F value is also high for Salmon biomass as well as tour length which indicates a strong effect on detections.
+
+This analysis shows that most of my assumptions were supported
+
+```{r}
+ggplot(bears, aes(x= SalmonBiomass, y= Detections)) + geom_point() + theme_bw()  + ggtitle("Salmon Biomass vs Detection")
+ggplot(bears, aes(x= DistanceToTour, y= Detections)) + geom_point() + theme_bw() + ggtitle("Tour Distance vs Detection")
+ggplot(bears, aes(x= tourLength, y= Detections)) + geom_point() + theme_bw() + ggtitle("Tour Length vs Detection")
+```
+
+The figures show the relationship of each deployment on the detection of bears. Two variables such as tour length and salmon biomass were significantly effecting the detections of bears while the distance of the tour did not (F= 34.742, df= 2, p \< .05).
+
+

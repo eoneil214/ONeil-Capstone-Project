@@ -1,0 +1,164 @@
+---
+title: "analysis2glm.qmd"
+format: html
+editor: visual
+---
+
+### Setting up
+
+```{r}
+rm(list = ls())
+library(here)
+library(tidyverse)
+library(ggfortify)
+```
+
+### 7.1 Introduction
+
+What do we do when our data violate assumptions of `lm`?
+
+For example, *count data* and *proportion* *data* are common in biology, and usually don't meet the assumption of normality.
+
+We often count the number of individuals, or cases, or species, etc.
+
+We usually want to relate those counts to other variables.
+
+Count data are bounded between zero and infinity, violate the normallity assumption and don't have a constant mean-variance relationship. Thus they typically are not well suited to `lm` methods.
+
+Date relating to proportions are also common. A common type of data records whether an event happens, such as does an animal die, does a plant flower, or is a species living in a grid cell? Or we may collect data on sex ratios. Once again, we want to relate these response variables to some predictor. Is the death rate related to amount of pesticide applied, for example?
+
+These types of questions involve a response variable that is either binary or another kind of count. We ask how the probability of an event occuring (live or die, number of individuals that lived or died, etc.) depends on the explanatory variable.
+
+Because these sorts of data all violate the assumptions of a general linear model (`lm`) we need to introduce the solution: a *generalized linear model*.
+
+#### Key terms for GLM models
+
+1.  *Family* = The family is the probability distribution that is assumed to describe the response variable (aka the *error structure*). The Poisson and binomial are examples of families.
+
+2.  *Linear predictor* - Just like in a linear model, there is a linear predictor, that is and equation that describes how the different predictor variable(s) affect the expected value of the response variable.
+
+3.  *Link function* - The link function describes the mathematical relationship between the expected value of the response variable and the linear predictor - it links the response and predictor variables.
+
+### Count and Rate Data often follow a Poisson Distribution
+
+Our goal is to understand how the rate of occurrence of the response variable (e.g. counts of babies produced) depends on the explanatory variable(s).
+
+Our response variable is counts of offspring from Soay sheep ewes.
+
+We're going to assume we have counts of sheep born to ewes and their average body mass. The question is whether bigger mommas produce more babies?
+
+Let's read in some data
+
+```{r}
+bears <- read_csv("~/Desktop/OneDrive - St. Lawrence University/Biostats/R_projects/ONeil-Capstone-Project/data/Short_et_al_Data1 (1).csv")
+
+```
+
+Now let's plot the data and look at a linear vs. non-linear line seem to fit the data.
+
+```{r}
+ggplot(bears, aes(SalmonBiomass, Detections))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+ #plots linear relationshiop
+  geom_smooth(span = 1, color = "red", se = F)+ #adds non-linear curve
+  xlab("Salmon Biomass")+
+  ylab("Bear Detections")
+```
+
+Clearly looking at the blue line, it doesn't capture the data as well as the red line. A linear relationship doesn't seem the best fit.
+
+Let's first do the analysis "wrong" with a `lm` and then do it "right" with `glm`.
+
+### 7.3 Doing it wrong
+
+Let's generate the model and get the plots to check the assumptions
+
+```{r}
+bears_lm <- lm(Detections ~SalmonBiomass+ DistanceToTour + tourLength, data = bears)
+autoplot(bears_lm)
+```
+
+The "U" shape in the plot of residuals vs. fitted values tells us that a linear model fails to account for the curvature in the relationship b/w our y and x variables.
+
+The Normal Q-Q plot also shows some issues. Notice how far the points fall from the line at the upper and lower ends of the theoretical quantiles.
+
+This is happening because we have right-skewed residuals. We see this if we plot a histogram of the response variable:
+
+```{r}
+ggplot(soay, aes(fitness))+
+  geom_histogram()
+```
+
+#### 7.3.2. The Poisson Distribution - a solution
+
+Before running the analysis, I'd like to get a couple of summary stats
+
+```{r}
+bear_summary <- bears %>% summarise(
+  mean_detections = mean(Detections, na.rm = T),
+  sd_detections = sd(Detections, na.rm = T)
+)
+View(bear_summary)
+anova(bears_lm)
+summary(bears_lm)
+```
+
+The Poisson distribution is a good starting point for certain kinds of count data. Look at 3 different views of the Poisson distribution, each with a different mean.
+
+The Poisson distribuiton is good for data whose upper value is unbounded (the lower value is assumed to be zero).
+
+### 7.4 Doing it right - the Poisson GLM
+
+#### 7.4.1 Anatomy of a glm
+
+We call our models linear because we are "adding up" all of the pieces of the model (the y-intercept and the slope term).
+
+When conducting a glm, instead of modeling the predicted values of the response directly, we model the mathematical transformation of the prediction. The function that does this is called the link function.
+
+A linear model does not mean a linear relationship. The link function, which transforms the prediction, can allow for that.
+
+#### 7.4.2 Doing it right - actually fitting the model
+
+Let's try a Poisson glm to see if we can get a better fit.
+
+To construct a glm, we need to specify the family.
+
+```{r}
+bears_glm <- glm(Detections ~SalmonBiomass + DistanceToTour + tourLength, data = bears, family = poisson)
+```
+
+Since we didn't specify the link function, R will choose what it thinks is the best default, which, in this case, is the log link function for Poisson models.
+
+#### 7.4.3 Doing it right - the diagnostics
+
+Use our same system for diagnostics:
+
+```{r}
+autoplot(bears_glm)
+```
+
+If our chosen family is a good fit for the data, then our diagnostics should operate like those from a model with normally distributed errors. So we don't need any new skills to evaluate our plots.
+
+#### 7.4.4 Doing it right - `anova()` and `summary()`
+
+Now let's look at the model output
+
+```{r}
+anova(bears_glm)
+```
+
+The total deviance in the data is 85.081 and the deviance related to body size is 37.041 deviance units, almost half of the variation in the data relates to body size.
+
+We didn't get p-values. We need to specify the probability distribution in order to get them. With a typical glm, p values come from the Chi-square distribution. (note that we are not doing a chi-square test).
+
+So if we specify the distribution, we can get a p-value:
+
+```{r}
+anova(bears_glm, test = "Chisq")
+```
+
+Now let's look at coefficients:
+
+```{r}
+summary(bears_glm)
+```

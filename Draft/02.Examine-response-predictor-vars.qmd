@@ -1,0 +1,203 @@
+---
+title: "02. Examine reponse and predictor variables"
+format: html
+editor: visual
+---
+
+## Examine response and predictor variables
+
+The code in this file corresponds to steps 1-3 in the first .qmd in this series, titled `01.multiple-regression-intro.qmd`.
+
+Start by setting things up
+
+```{r}
+rm(list = ls())
+library(tidyverse)
+library(here)
+library(Hmisc) #for testing significance of correlations
+library(GGally) #for making pairwise plots of variables
+library(corrplot) #for looking at correlation matrices
+library(ggcorrplot) #for plotting correlation matrices
+```
+
+Now let's pull in some data.
+
+We're using a file called `camera_covariates_50hectares.csv`. These data present the diversity of mammal species as detected from camera traps set up in forests around the North Country in 2017-2018.
+
+The variable div_shan is the Shannon index of mammal diversity at each camera trap location.
+
+ForestSimpson, ForestShannon, and ForestSR are the diversity indices for the trees at each forest where a camera was located. We used GIS to determine habitat variables at a 50 hectare scale around each camera. The 50-hectare scale represents the typical home range size for many medium sized mammals like porcupines and raccoons.
+
+```{r}
+cams <- read.csv(here("Data/regression/camera_covariates_50hectares.csv"), stringsAsFactors = T)
+```
+
+Now look at the data and notice that we have a combination of categorical and continuous predictor variables. Our response variables is div_shan.
+
+Remember that for regression, we need complete cases, so let's get that next.
+
+```{r}
+cams <- cams[complete.cases(cams),]
+```
+
+We end up with 55 rows and 30 variables!
+
+The first column, cam-sd, just provides a unique identifier for the camere that the data correspond to.
+
+Now let's rearrange our data a bit so that the response variable, div_shan, comes next
+
+```{r}
+cams <- cams %>% relocate(div_shan, .after = cam_sd)
+```
+
+### Step 1 - Plot response variables
+
+Let's looks at our response variable
+
+```{r}
+ggplot(cams, aes(div_shan))+
+  geom_histogram()
+range(cams$div_shan, na.rm = T)
+```
+
+Looks more-or-less normal but has quite a few zeroes.
+
+### Step 2 - Evaluate predictor variables.
+
+We now have the data set set up so that columns 3:30 represent possible predictor variables. Now our task is to see if any of those predictor variables are highly correlated with one another. We don't want to use predictor variables in a model when they are highly correlated. The rule of thumb is that variables with correlation coefficients \> 0.7 (positive or negative) are too highly correlated.
+
+We can't get correlations with categorical variables. So let's pull the factor variables to the left of the data frame and specify the remaining columns for the correlation test.
+
+```{r}
+cams <- cams %>% relocate(Cam_Model, .after = Season)
+```
+
+Now colums 7:30 are numeric predictors. Let's take a look at how correlated they are.
+
+```{r}
+cor_tests <- cor(cams[,7:30], method = "pearson")
+cor_tests <- round(cor_tests, 2) #round for easier viewing
+```
+
+Now we need to know which of the correlations are statistically significant. To do so requires `rcorr` function from `Hmisc` package.
+
+```{r}
+cor_tests_results <- rcorr(as.matrix(cams[,7:30]))
+```
+
+The result is a big list - let's flatten it to make it easier to understand the results.
+
+Use this little function (copy this whole block of code into your own code if you plan to use the function and don't alter it!).
+
+```{r}
+flattenCorrMatrix<-function(cormat,pmat){
+  ut<-upper.tri(cormat)
+  data.frame(
+    row = rownames (cormat)[row(cormat) [ut]],
+    column = rownames(cormat)[col(cormat)[ut]],
+    cor = (cormat)[ut],
+    p = pmat[ut]
+  )
+}
+```
+
+Now let's use the function
+
+```{r}
+cam_table <- flattenCorrMatrix(cor_tests_results$r, cor_tests_results$P)
+```
+
+The gives us all of the pairwise correlations among variables and their associated p-values. We only care about the ones that have correlation coefficients \>= 0.7. Let's filter for those.
+
+```{r}
+highly_correlated <- cam_table %>% filter(cor >= 0.7 | cor <= -0.7)
+```
+
+We went from 276 rows to 11 rows!
+
+Let's take a look
+
+```{r}
+View(highly_correlated)
+```
+
+The 3 forest diversity indices, Shannon, Simpson and Species Richness are all highly correlated, so we will just use ForestShannon in our possible models.
+
+Mean tree density, seedling and sapling density and total density are all highly correlated, so we'll just use total density.
+
+Same for dominanance.
+
+Percent evergreen is negatively correlated with percent deciduous so we'll drop percent evergreen.
+
+Percent forest is negatively correlated with percent wetlandso we'll drop percent wetland.
+
+#### Visualize correlation matrices
+
+We can also visualize these results using the `corrplot` package:
+
+```{r}
+corrplot(cor_tests, type = "lower", order = "hclust", tl.col = "black", tl.srt = 45)
+```
+
+Or with `ggcorrplot`:
+
+```{r}
+ggcorrplot(cor_tests_results$r, hc.order = TRUE, type = "lower", lab = T, outline.col = "white", p.mat = cor_tests_results$P, insig = "blank")
+```
+
+So now let's drop the variables that are highly correlated from our dataframe.
+
+```{r}
+drop <- c("ForestSimpson", "ForestSR", "meanTreeDensity", "meanSeedlingSaplingDensity", "meanTreeDominance", "meanSeedlingSaplingDensity", "P_Evergreen50","P_Wetland50")
+
+cams <- cams %>% select(-drop)
+```
+
+Now we have 55 observations and 23 variables, of which 21 are possible predictor variables. That is still a LOT of predictor variables! Let's write that result to use in our models.
+
+```{r}
+write.csv(cams, here("Data/regression/cleaned_cam_data.csv"), row.names = F)
+```
+
+### Step 3 - Guesstimate predictors
+
+We can take a look at how highly correlated our response variable is with our numeric predictor variables to make a guess as to which predictors might be important and likely to be included in our model.
+
+```{r}
+predictor_cors <- data.frame(cor(cams[,7:23], cams$div_shan))
+predictor_cors <- predictor_cors %>% rename(correlation = cor.cams...7.23...cams.div_shan.)
+
+predictor_cors %>% arrange(desc(correlation)) %>% View()
+```
+
+Looks like the variables with the highest correlation to mammal shannon diversity are the percent of agricultural habiat, the percent of shrub habitat and the mean tree/seedling/sapling density which all have a positive correlation greater than 0.2 and the number of deer, which has a negative correlation at -0.1988. I expect these may be the most likey variables to appear in my model.
+
+Let's plot some of those relationships:
+
+```{r}
+ggplot(cams, aes(P_Agriculture50, div_shan))+
+  geom_point()
+```
+
+We see that there are a LOT of zeroes for this variable which may be problematic.
+
+```{r}
+ggplot(cams, aes(P_Shrub50, div_shan))+
+  geom_point()
+```
+
+Again, lots of zeroes. But might be positively trending.
+
+```{r}
+ggplot(cams, aes(MeanAllDensity, div_shan))+
+  geom_point()
+```
+
+Notice a big gap here between lower and higher densities, with nothing in between.
+
+```{r}
+ggplot(cams, aes(NumDeer, div_shan))+
+  geom_point()
+```
+
+Ok - so we've looked at some of the relationships among the variables. Now let's move on to model building. Checkout `03.Construct-multiple-regression.qmd`.

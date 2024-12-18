@@ -1,0 +1,268 @@
+---
+title: "Finalproject.qmd"
+format: html
+editor: visual
+---
+
+### Ecotourism on Bear Detection in the Khutze Watershed
+
+Introduction:
+
+This dataset is associated with an experiment that tests the effects of human activity and bear viewing on grizzly bear activity in the Khutze watershed. They also observed and noted the trade-off of risk avoidance and foraging associated with salmon levels. Wildlife avoids people and they wanted to highlight this through the bears from forty different cameras.  They took the opportunity to test this experiment during the covid 19 pandemic as human interference would be significantly lower as areas were closed to tourism. This is a large data set as it has 4500 rows of data with 20 variables being measured.
+
+Short, M. L., Service, C. N., Suraci, J. P., Artelle, K. A., Field, K. A., & Darimont, C. T. (2024). Ecology of fear alters behavior of grizzly bears exposed to bear-viewing ecotourism. *Ecology, 105*(5), e4317. https://doi.org/10.1002/ecy.4317
+
+To prepare this dataset, very little extra steps were needed. The dataset was had all complete cases, so nothing was left as null or as NA. The only preparation needed was moving the text the right side of the column instead of leaving it in the center and removing the dashes in the column titles.
+
+## Analysis one
+
+This is to see the relationship between the what is the effect of site closure on bear abundance. The null hypothesis is that there is no correlation between site closure and bear abundance. An alternative hypothesis is that the open treatment will see less bear detections than the closed treatments.
+
+Set things up
+
+```{r}
+rm(list=ls())
+library(here)
+library(tidyverse)
+library(ggfortify)
+library(multcomp)
+bears <- read_csv(here::here("data/Short_et_al_Data1 (1).csv"))
+```
+
+Take a look at our data and see if things will need to be fixed
+
+```{r}
+glimpse(bears)
+summary(bears)
+
+```
+
+We have 20 variables with 4577 observations. For this analysis we will be looking at the Year closure variable and the detections variable. We need to change year closure to a factor variable.
+
+```{r}
+#change character variables to factor variables
+bears$YearClosures <- as.factor(bears$YearClosures)
+bears$Exposure <- as.factor(bears$Exposure)
+bears$PeoplePresent <- as.factor(bears$PeoplePresent)
+bears$Treatment <- as.factor(bears$Treatment)
+
+```
+
+Check our levels for treatment. Since there is three levels for treatment; closed to tourism, or open in one of two sections, We need to run an anova test. There does not seem to be any issues with how the data is put in so we can continue with our test.
+
+```{r}
+#use the levels function to see if there are mistakes 
+levels(bears$Treatment)
+```
+
+In our data we see the our predictor variable is a categorical variable with the levels being Closed, North and South Open. The response variable of Detections is a continuous count variable.
+
+First we need to plot the relation before analyzing the data
+
+```{r}
+#plot the relationship between the detection of bears and the treatment to see the correlation 
+ggplot(bears, aes(Detections))+
+  geom_histogram()+
+  facet_wrap(~Treatment, ncol = 1)
+```
+
+From this, it can be guessed that there will be a difference from closed to open tourism but not a difference in the two sections that were open to tourism. The treatment of being open or closed will have an impact on the detections of bears found.
+
+```{r}
+#making a model
+bear.model <- lm(Detections ~ Treatment, data = bears)
+autoplot(bear.model)
+
+```
+
+Looking the plots, we can make the assumptions that the data does not follow the normal distribution
+
+```{r}
+#run anova to see specific results from the model 
+anova(bear.model)
+phc1 <- glht(bear.model, linfct = mcp(Treatment = "Tukey"))
+summary(phc1)
+cld(phc1)
+```
+
+We have a p value of less than .05 which shows us that there is a significant difference between the Treatment levels of being open and closed and the amount of bears detected. There is a degrees of freedom of two because we have one minus the treatment levels. Our residuals degrees of freedom is 4574 because we have 4577 observations minus the three treatment levels. (F= 34.742, df= 2, p \< .05) From this test, it shows that there is a significant difference between the open treatments of North and South and closed and but no significant different between the two open treatments.
+
+Bears are highly influenced by ecotourism as human activity deters bears from their path. Tourism of national parks can create high traffic flow and cause stress to bears. With these stress responses, there could be changes in foraging since they are trying to avoid human interaction. High trafficked areas will most likely decrease the amount of times a bear is detected on a camera as bears will avoid human presence. (Fortin et al, 2016)
+
+```{r}
+ggplot(bears, aes(x= Treatment, y = Detections)) + geom_point() + geom_smooth(method = 'lm')
+```
+
+The figure shows the relationship between the Treatment status of the park such as an open or closed area in relation to how many bears were detected on camera. Results show significant differences with (F= 34.742, df= 2, p \< .05). Once again this is justified by Fortin in saying that bears will be less likely to go near human populated areas making detections harder to be seen during the open treatments as those are the times the watershed is open to tourism making the alternative hypothesis supported.
+
+Fortin, J. K., Rode, K. D., Hilderbrand, G. V., Wilder, J., Farley, S., Jorgensen, C., & Marcot, B. G. (2016). Impacts of Human Recreation on Brown Bears (Ursus arctos): A Review and New Management Tool. *PloS one*, *11*(1), e0141983. https://doi.org/10.1371/journal.pone.0141983
+
+### Analysis Two
+
+This is to see the relationship between the what is the effect of multiple factors on bear abundance. The null hypothesis is that there is no correlation between any of these factors and bear abundance. An alternative hypothesis is that there will be an effect for multiple factors on bear abundance.
+
+```{r}
+rm(list = ls())
+library(here)
+library(tidyverse)
+library(ggfortify)
+library(performance) #for checking model performance
+library(broom) #for tidying regression output
+library(leaps) #allows best subsets linear regression
+library(MASS) #for stepAIC function
+library(data.table) #for confidence intervals
+library(bestglm)
+bears <- read_csv("~/Desktop/OneDrive - St. Lawrence University/Biostats/R_projects/ONeil-Capstone-Project/data/Short_et_al_Data1 (1).csv")
+```
+
+### Plot response variable
+
+```{r}
+ggplot(bears, aes(Detections))+
+  geom_histogram()
+range(bears$Detections, na.rm = T)
+```
+
+Seeing this graph, there are alot of zero values which may cause trouble in our data analysis
+
+### Examine predictors
+
+Step 2 - Evaluate predictor variables.
+
+We now have the data set set up so that columns 2:6 represent possible predictor variables. Now our task is to see if any of those predictor variables are highly correlated with one another. We don't want to use predictor variables in a model when they are highly correlated. The rule of thumb is that variables with correlation coefficients \> 0.7 (positive or negative) are too highly correlated.
+
+Make new data set with only my predictor variables
+
+```{r}
+bears1 <- bears %>% dplyr::select(Detections, SalmonBiomass, Tours, DistanceToTour, DaysSincePeople, tourLength)
+```
+
+Now colums 2:6 are numeric predictors. Let's take a look at how correlated they are.
+
+```{r}
+cor_tests <- cor(bears1[,2:6], method = "pearson")
+cor_tests <- round(cor_tests, 2) #round for easier viewing
+```
+
+Tours and tour length are highly correlated with a .95 correlation coefficient which is way to high so I am going to drop tours
+
+```{r}
+bears1 <- bears1 %>% dplyr::select(-Tours)
+```
+
+Guesstimate predictors
+
+We can take a look at how highly correlated our response variable is with our numeric predictor variables to make a guess as to which predictors might be important and likely to be included in our model.
+
+```{r}
+predictor_cors <- data.frame(cor(bears1[,2:5], bears1$Detections))
+```
+
+Salmon biomass looks like it could be the best out of all predictors to be correlated as it is the highest number to be closes to 1 but none are strong as they are all low numbers.
+
+Make all the plots
+
+```{r}
+ggplot(bears1, aes(SalmonBiomass, Detections))+
+  geom_point()
+```
+
+```{r}
+ggplot(bears1, aes(DistanceToTour, Detections))+
+  geom_point()
+```
+
+We see that there are a LOT of zeroes for this variable which may be problematic.
+
+```{r}
+ggplot(bears1, aes(DaysSincePeople, Detections))+
+  geom_point()
+```
+
+```{r}
+ggplot(bears1, aes(tourLength, Detections))+
+  geom_point()
+```
+
+### Build Best subsets
+
+Method 1 - Build the model
+
+Now build the models
+
+```{r}
+all_subsets.mods <-glm( Detections ~ . , family = poisson, data = bears1)
+autoplot(all_subsets.mods)
+  
+summary(all_subsets.mods)
+
+```
+
+For this plot, the data is not normally distributed. This is because we have too many zero values within our data set. This is called zero inflation. When a large portion of the data is zero it is hard to interpret the data as coefficients and their significants may not be entirely accurate or underestimating the actual effect of predictors. We have to stop our model here as going further with any other model would be past the knowledge of the class.
+
+### Run and Interpret final model
+
+Create the final model
+
+```{r}
+final_mod <-glm( Detections ~ SalmonBiomass + tourLength , family = poisson, data = bears1)
+summary(final_mod)
+anova(final_mod)
+```
+
+Along the shore of Alaska, sockeye salmon are available for bears as the come up in the streams. Multiple studies have shown that bears will form foraging strategies to hunt these salmon (Wirsing 2018). Salmon are one of the key determinants of brown bear population ( Deacy 2023) , so salmon in a habitat is going to be where a bear is going to be.
+
+```{r}
+library(DHARMa) #package needed to run the check model function
+check_model(final_mod)
+```
+
+Make a final plot
+
+```{r}
+coefs <- tidy(final_mod)
+coefs
+```
+
+Now get confidence interval
+
+```{r}
+ci <- data.table(confint(final_mod), keep.rownames = 'term')
+```
+
+Now combine coefs and ci
+
+```{r}
+cidf <- cbind(coefs, ci)
+cidf
+```
+
+```{r}
+colnames(cidf)
+cidf <-cidf[,-6] #got rid of second term column
+
+cidf <-cidf %>% rename(
+  "lower" = "2.5 %",
+  "upper" = "97.5 %"
+)
+
+cidf$term <- as.factor(cidf$term)
+```
+
+Now we can make a plot
+
+```{r}
+ggplot(cidf, aes(estimate, term))+
+  geom_vline(xintercept = 0, linetype = 2)+
+  geom_point(size = 3)+
+  geom_errorbarh(aes(xmax = lower, xmin = upper), height = 0.2)+
+  theme_bw()
+```
+
+This plot shows us the confidence intervals for each term in our model - those that do not include zero for the estimate are statistically significant. You can see that, tour lenght is a significant negative effect on detected detections and when the salmon biomass increases, there is an increase in detections.
+
+Wirsing, A. J., Quinn, T. P., Cunningham, C. J., Adams, J. R., Craig, A. D., & Waits, L. P. (2018). Alaskan brown bears (*Ursus arctos*) aggregate and display fidelity to foraging neighborhoods while preying on Pacific salmon along small streams. *Ecology and evolution*, *8*(17), 9048–9061. https://doi.org/10.1002/ece3.4431
+
+Challenges:
+
+From these analyses, the second one provided more of the challenge. With the first one it was easier to take on because it was stuff that was done in class and it was done with one variable which is cleaner to analyze. With my second analysis, it was not anything we covered in class when I first started. My data was also not normally distributed. With these two challenges and my lack of previous coding and stat experience, I had to teach myself and got feedback and a lot of things. Ultimately, the analysis needed to be cut down due to the complexity of what it was turning out to be so keeping it to an easier level made it easier to interpret and organize. Now I know how to use these new skills such as using a general linear model and a multiple regression as well as coding done in class that I could have never done before.

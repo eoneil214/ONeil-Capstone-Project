@@ -14,7 +14,7 @@ To prepare this dataset, very little extra steps were needed. The dataset was ha
 
 ## Analysis one
 
-This is to see the relationship between the what is the effect of site closure on bear abundance. The null hypothesis is that there is no correlation between site closure and bear abundance
+This is to see the relationship between the what is the effect of site closure on bear abundance. The null hypothesis is that there is no correlation between site closure and bear abundance.
 
 Set things up
 
